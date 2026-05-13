@@ -1,0 +1,12 @@
+name              'osl-discourse'
+maintainer        'Oregon State University'
+maintainer_email  'chef@osuosl.org'
+license           'All Rights Reserved'
+description       'Installs/Configures osl-discourse'
+issues_url        'https://github.com/osuosl-cookbooks/osl-discourse/issues'
+source_url        'https://github.com/osuosl-cookbooks/osl-discourse'
+chef_version      '>= 18.0'
+version           '0.1.0'
+
+supports          'almalinux', '~> 9.0'
+supports          'almalinux', '~> 10.0'

@@ -1,0 +1,25 @@
+---
+driver:
+  name: vagrant
+
+verifier:
+  name: inspec
+
+transport:
+  name: rsync
+
+provisioner:
+  name: cinc_infra
+  product_version: 18
+  enforce_idempotency: true
+  multiple_converge: 2
+  deprecations_as_errors: true
+
+platforms:
+  - name: almalinux-9
+  - name: almalinux-10
+
+suites:
+  - name: default
+    run_list:
+      - recipe[osl-discourse::default]
