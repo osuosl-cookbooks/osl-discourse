@@ -1,0 +1,34 @@
+#!/bin/bash
+# Managed by Chef (osl-discourse cookbook). DO NOT EDIT.
+#
+# Bootstrap-then-swap rebuild for Discourse: builds the new image while the
+# running container keeps serving, then swaps with a brief stop/start cycle.
+# Replaces `launcher rebuild` to cut per-rebuild downtime from ~15 min to ~30 s.
+
+set -euo pipefail
+
+LAUNCHER_DIR=/var/discourse
+LOCK_DIR=$LAUNCHER_DIR/cids
+
+usage() {
+  echo "usage: $(basename "$0") <container> [launcher args...]" >&2
+  exit 64
+}
+
+[ $# -lt 1 ] && usage
+config="$1"; shift
+
+mkdir -p "$LOCK_DIR"
+lockfile="$LOCK_DIR/$config.rebuild.lock"
+
+exec 9>"$lockfile"
+if ! flock -n 9; then
+  echo "another discourse-rebuild is already running for $config (lock: $lockfile)" >&2
+  exit 1
+fi
+
+cd "$LAUNCHER_DIR"
+
+./launcher bootstrap "$config" "$@"
+./launcher destroy   "$config"
+./launcher start     "$config" "$@"
