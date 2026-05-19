@@ -68,6 +68,11 @@ describe 'discourse_test::default' do
       notify('osl_discourse[discourse.example.org]').to(:rebuild).delayed
   end
 
+  it 'renders DISCOURSE_FORCE_HTTPS: true by default (sites sit behind https-terminating HAProxy)' do
+    is_expected.to render_file('/var/discourse/containers/forum.yml')
+      .with_content(/^  DISCOURSE_FORCE_HTTPS: true$/)
+  end
+
   # Mon 11:10 PDT (UTC-7) → Mon 18:10 UTC.
   it do
     is_expected.to create_cron_d('discourse-rebuild-forum').with(

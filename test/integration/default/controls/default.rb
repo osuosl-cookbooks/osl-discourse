@@ -17,6 +17,7 @@ control 'default' do
     its('content') { should match(/^  DISCOURSE_DB_NAME: discourse$/) }
     its('content') { should match(%r{git clone https://github\.com/discourse/docker_manager\.git}) }
     its('content') { should match(/apt-get install -y postgresql-16/) }
+    its('content') { should match(/^  DISCOURSE_FORCE_HTTPS: true$/) }
   end
 
   describe file '/var/discourse/templates/web.realip.template.yml' do

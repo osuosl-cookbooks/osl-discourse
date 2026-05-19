@@ -35,6 +35,11 @@ property :unicorn_workers,     Integer, default: 4
 property :locale,              String
 property :notification_email,  String
 property :cdn_url,             String
+# OSL Discourse instances sit behind an HTTPS-terminating HAProxy by default.
+# DISCOURSE_FORCE_HTTPS makes Discourse generate https:// URLs in emails,
+# OAuth callbacks, oembeds, etc. Requires the proxy to set
+# X-Forwarded-Proto: https on forwarded requests.
+property :force_https,         [true, false], default: true
 
 # Plugins (docker_manager is always installed; do not list it here)
 property :plugins, Array, default: []
@@ -132,6 +137,7 @@ action :create do
       locale: new_resource.locale,
       notification_email: new_resource.notification_email,
       cdn_url: new_resource.cdn_url,
+      force_https: new_resource.force_https,
       developer_emails: new_resource.developer_emails,
       smtp_address: new_resource.smtp_address,
       smtp_port: new_resource.smtp_port,

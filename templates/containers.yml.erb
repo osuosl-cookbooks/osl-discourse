@@ -36,6 +36,9 @@ env:
 <% if @cdn_url -%>
   DISCOURSE_CDN_URL: <%= @cdn_url %>
 <% end -%>
+<% if @force_https -%>
+  DISCOURSE_FORCE_HTTPS: true
+<% end -%>
   DISCOURSE_SMTP_ADDRESS: <%= @smtp_address %>
   DISCOURSE_SMTP_PORT: <%= @smtp_port %>
   DISCOURSE_SMTP_AUTHENTICATION: <%= @smtp_authentication %>

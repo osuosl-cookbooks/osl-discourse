@@ -64,6 +64,7 @@ end
 | `developer_emails` | required | comma-separated; initial admin signups |
 | `unicorn_workers` | `4` | |
 | `locale` / `notification_email` / `cdn_url` | unset | |
+| `force_https` | `true` | Sets `DISCOURSE_FORCE_HTTPS=true` so Discourse generates `https://` URLs. Assumes the upstream proxy terminates TLS and sets `X-Forwarded-Proto: https`. Set to `false` for HTTP-only instances. |
 | `plugins` | `[]` | Array of git URLs; `docker_manager` is always installed |
 | `trusted_proxies` | OSL LB v4 + v6 addresses (lb1, lb2, vip-lb1) | rendered into `web.realip.template.yml` |
 | `extra_env` / `extra_params` | `{}` | merged into the container yml |
