@@ -84,3 +84,20 @@ describe 'discourse_test::default' do
     )
   end
 end
+
+# The :rebuild action is exercised via a dedicated test recipe — chefspec's
+# step_into doesn't traverse delayed notifications into a sibling action's
+# body, so we converge a recipe that calls the resource with action :rebuild
+# explicitly.
+describe 'discourse_test::rebuild' do
+  platform 'almalinux'
+  cached(:subject) { chef_run }
+  step_into :osl_discourse
+
+  it 'streams launcher output live during a manual rebuild' do
+    is_expected.to run_execute('discourse-rebuild forum').with(
+      command: '/usr/local/sbin/discourse-rebuild forum --docker-args "--network host" --skip-mac-address',
+      live_stream: true
+    )
+  end
+end

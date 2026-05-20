@@ -33,10 +33,11 @@ control 'default' do
   describe file '/usr/local/sbin/discourse-rebuild' do
     it { should exist }
     its('mode') { should cmp '0750' }
-    its('content') { should match(%r{^./launcher bootstrap "\$config"}) }
-    its('content') { should match(%r{^./launcher destroy   "\$config"}) }
-    its('content') { should match(%r{^./launcher start     "\$config"}) }
+    its('content') { should match(%r{^./launcher bootstrap "\$config" "\$@" 2>&1 \| redact$}) }
+    its('content') { should match(%r{^./launcher destroy   "\$config" *2>&1 \| redact$}) }
+    its('content') { should match(%r{^./launcher start     "\$config" "\$@" *2>&1 \| redact$}) }
     its('content') { should match(/flock -n 9/) }
+    its('content') { should match(/_PASSWORD\|_KEY\|_SECRET\|_TOKEN/) }
   end
 
   # Mon 11:10 PT is written in UTC; either 18:10 (PDT) or 19:10 (PST) depending

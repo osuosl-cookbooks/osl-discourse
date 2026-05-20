@@ -29,6 +29,14 @@ fi
 
 cd "$LAUNCHER_DIR"
 
-./launcher bootstrap "$config" "$@"
-./launcher destroy   "$config"
-./launcher start     "$config" "$@"
+# The launcher uses `set -x` around the `docker run` command in `launcher start`,
+# which echoes every `-e VAR=value` flag — including DISCOURSE_DB_PASSWORD and any
+# other secret-bearing env vars — to stdout. Pipe through a redactor so those
+# don't end up in the chef-client log when live_stream is on.
+redact() {
+  sed -E 's/(-e [A-Z_]*(_PASSWORD|_KEY|_SECRET|_TOKEN))=\S+/\1=[REDACTED]/g'
+}
+
+./launcher bootstrap "$config" "$@" 2>&1 | redact
+./launcher destroy   "$config"       2>&1 | redact
+./launcher start     "$config" "$@"  2>&1 | redact

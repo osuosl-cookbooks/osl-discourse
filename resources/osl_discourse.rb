@@ -188,5 +188,6 @@ end
 action :rebuild do
   execute "discourse-rebuild #{new_resource.container_name}" do
     command discourse_rebuild_command(new_resource.container_name, new_resource.docker_args, new_resource.skip_mac_address)
+    live_stream true
   end
 end
