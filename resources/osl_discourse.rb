@@ -111,19 +111,15 @@ action :create do
     group 'root'
   end
 
-  template discourse_realip_template(new_resource.launcher_dir) do
+  realip = template discourse_realip_template(new_resource.launcher_dir) do
     source 'web.realip.template.yml.erb'
     cookbook 'osl-discourse'
     mode '0644'
     variables(trusted_proxies: new_resource.trusted_proxies)
-    # Delayed so the rebuild fires once at end-of-run with both this template
-    # AND the container yml on disk — immediate would fire before the
-    # container yml below has rendered.
-    notifies :rebuild, "osl_discourse[#{new_resource.hostname}]"
     not_if { new_resource.trusted_proxies.empty? }
   end
 
-  template discourse_container_yml(new_resource.launcher_dir, new_resource.container_name) do
+  container_yml = template discourse_container_yml(new_resource.launcher_dir, new_resource.container_name) do
     source 'containers.yml.erb'
     cookbook 'osl-discourse'
     mode '0640'
@@ -160,7 +156,21 @@ action :create do
       extra_params: new_resource.extra_params,
       extra_templates: new_resource.extra_templates
     )
-    notifies :rebuild, "osl_discourse[#{new_resource.hostname}]"
+  end
+
+  # Run the rebuild during :create rather than via :delayed notifies so the
+  # container is up before any subsequent recipe in the run list. Fires when
+  # either template just changed, or the container doesn't exist yet
+  # (first-time install). With unified_mode, both template resources above
+  # have already executed by the time this only_if is evaluated.
+  execute "rebuild Discourse: #{new_resource.container_name}" do
+    command discourse_rebuild_command(new_resource.container_name, new_resource.docker_args, new_resource.skip_mac_address)
+    live_stream true
+    only_if do
+      realip.updated_by_last_action? ||
+        container_yml.updated_by_last_action? ||
+        !discourse_container_exists?(new_resource.container_name)
+    end
   end
 
   # OSL hosts run in UTC; convert the operator-friendly schedule to UTC at

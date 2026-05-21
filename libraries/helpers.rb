@@ -48,6 +48,27 @@ module OslDiscourse
         shared_path_name || container_name
       end
 
+      # True if a container with the given name exists (running or stopped).
+      # Uses the docker-api gem (loaded transitively via osl-docker → docker)
+      # rather than shelling out to `docker ps`. Returns false on any docker
+      # error so the caller treats it as "needs first-time install".
+      def discourse_container_exists?(container_name)
+        require 'docker'
+        begin
+          Docker::Container.get(container_name)
+          true
+        rescue Docker::Error::NotFoundError
+          false
+        rescue StandardError
+          false
+        end
+      rescue LoadError
+        # docker-api gem unavailable (this resource pulls in osl-docker so this
+        # is mostly a defensive guard); treat as "no container", let the caller
+        # attempt the rebuild and fail visibly if docker really isn't usable.
+        false
+      end
+
       def discourse_container_yml(launcher_dir, container_name)
         "#{launcher_dir}/containers/#{container_name}.yml"
       end

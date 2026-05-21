@@ -69,4 +69,25 @@ RSpec.describe OslDiscourse::Cookbook::Helpers do
       end.to raise_error(ArgumentError, /invalid weekday/)
     end
   end
+
+  describe '#discourse_container_exists?' do
+    before { require 'docker' }
+
+    it 'returns true when the container is found' do
+      allow(Docker::Container).to receive(:get).with('forum').and_return(double)
+      expect(subject.discourse_container_exists?('forum')).to be true
+    end
+
+    it 'returns false on NotFoundError' do
+      allow(Docker::Container).to receive(:get).with('forum')
+                                               .and_raise(Docker::Error::NotFoundError)
+      expect(subject.discourse_container_exists?('forum')).to be false
+    end
+
+    it 'returns false on any other docker error (daemon down, gem missing, etc.)' do
+      allow(Docker::Container).to receive(:get).with('forum')
+                                               .and_raise(StandardError, 'docker daemon unreachable')
+      expect(subject.discourse_container_exists?('forum')).to be false
+    end
+  end
 end

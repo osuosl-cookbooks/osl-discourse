@@ -9,6 +9,9 @@ describe 'discourse_test::default' do
     stub_command('iptables -C INPUT -j REJECT --reject-with icmp-host-prohibited 2>/dev/null').and_return(true)
     # Pin "today" to a Monday during PDT so the UTC conversion is deterministic.
     allow(Date).to receive(:today).and_return(Date.new(2026, 7, 6))
+    # Simulate first-time install: container doesn't exist yet.
+    allow_any_instance_of(OslDiscourse::Cookbook::Helpers)
+      .to receive(:discourse_container_exists?).with('forum').and_return(false)
   end
 
   it { is_expected.to include_recipe 'osl-docker' }
@@ -50,11 +53,6 @@ describe 'discourse_test::default' do
   end
 
   it do
-    expect(chef_run.template('/var/discourse/templates/web.realip.template.yml')).to \
-      notify('osl_discourse[discourse.example.org]').to(:rebuild).delayed
-  end
-
-  it do
     is_expected.to create_template('/var/discourse/containers/forum.yml').with(
       source: 'containers.yml.erb',
       cookbook: 'osl-discourse',
@@ -63,14 +61,19 @@ describe 'discourse_test::default' do
     )
   end
 
-  it do
-    expect(chef_run.template('/var/discourse/containers/forum.yml')).to \
-      notify('osl_discourse[discourse.example.org]').to(:rebuild).delayed
-  end
-
   it 'renders DISCOURSE_FORCE_HTTPS: true by default (sites sit behind https-terminating HAProxy)' do
     is_expected.to render_file('/var/discourse/containers/forum.yml')
       .with_content(/^  DISCOURSE_FORCE_HTTPS: true$/)
+  end
+
+  # Inline rebuild fires during :create when a template just rendered or the
+  # container is missing — keeps the container up before subsequent recipes
+  # in the run list need it.
+  it do
+    is_expected.to run_execute('rebuild Discourse: forum').with(
+      command: '/usr/local/sbin/discourse-rebuild forum --docker-args "--network host" --skip-mac-address',
+      live_stream: true
+    )
   end
 
   # Mon 11:10 PDT (UTC-7) → Mon 18:10 UTC.
