@@ -1,0 +1,42 @@
+#!/bin/bash
+# Managed by Chef (osl-discourse cookbook). DO NOT EDIT.
+#
+# Bootstrap-then-swap rebuild for Discourse: builds the new image while the
+# running container keeps serving, then swaps with a brief stop/start cycle.
+# Replaces `launcher rebuild` to cut per-rebuild downtime from ~15 min to ~30 s.
+
+set -euo pipefail
+
+LAUNCHER_DIR=/var/discourse
+LOCK_DIR=$LAUNCHER_DIR/cids
+
+usage() {
+  echo "usage: $(basename "$0") <container> [launcher args...]" >&2
+  exit 64
+}
+
+[ $# -lt 1 ] && usage
+config="$1"; shift
+
+mkdir -p "$LOCK_DIR"
+lockfile="$LOCK_DIR/$config.rebuild.lock"
+
+exec 9>"$lockfile"
+if ! flock -n 9; then
+  echo "another discourse-rebuild is already running for $config (lock: $lockfile)" >&2
+  exit 1
+fi
+
+cd "$LAUNCHER_DIR"
+
+# The launcher uses `set -x` around the `docker run` command in `launcher start`,
+# which echoes every `-e VAR=value` flag — including DISCOURSE_DB_PASSWORD and any
+# other secret-bearing env vars — to stdout. Pipe through a redactor so those
+# don't end up in the chef-client log when live_stream is on.
+redact() {
+  sed -E 's/(-e [A-Z_]*(_PASSWORD|_KEY|_SECRET|_TOKEN))=\S+/\1=[REDACTED]/g'
+}
+
+./launcher bootstrap "$config" "$@" 2>&1 | redact
+./launcher destroy   "$config"       2>&1 | redact
+./launcher start     "$config" "$@"  2>&1 | redact

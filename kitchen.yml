@@ -22,4 +22,4 @@ platforms:
 suites:
   - name: default
     run_list:
-      - recipe[osl-discourse::default]
+      - recipe[discourse_test]

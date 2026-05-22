@@ -1,2 +1,5 @@
 ---
 name: default
+depends:
+ - name: inspec-docker-resources
+   gem: inspec-docker-resources
