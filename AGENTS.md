@@ -49,12 +49,26 @@ and any site-specific firewall/proxy setup.
   block, matching `osl-postgresql` / `osl-gpu` / other osl-* cookbooks. Helpers
   take primitives as arguments (not `new_resource`) and are included into
   `Chef::DSL::Recipe` and `Chef::Resource` at the bottom of the file.
-- **Template notifies use `:delayed`** (the default), not `:immediately`. With
-  two templates each notifying `:rebuild`, immediate notification fires after
-  the *first* template renders — at which point the second template's file
-  doesn't exist yet, and the launcher errors with `containers/<name>.yml does
-  not exist or is not readable`. Delayed lets both files settle before the
-  single deduped rebuild fires at end-of-run.
+- **Rebuild runs inline during `:create`, not via notifies.** Templates are
+  assigned to local variables (`realip = template ... do ... end` and
+  `container_yml = template ... do ... end`), and the rebuild `execute` is
+  declared last with an `only_if` that checks
+  `realip.updated_by_last_action? || container_yml.updated_by_last_action? ||
+  !discourse_container_exists?(container_name)`. With `unified_mode`, both
+  templates have already run by the time the only_if is evaluated. This
+  shape was picked after two prior failures:
+  - `:immediately` notifies fired after the *first* template rendered, so
+    the launcher errored with `containers/<name>.yml does not exist or is
+    not readable` because the second template hadn't run yet.
+  - `:delayed` notifies deferred the rebuild to end-of-converge, leaving
+    subsequent recipes in the same run list (e.g. snowdrift's
+    `docker exec snowdrift-forum discourse enable_restore`) executing
+    against a container that didn't exist yet.
+- **`discourse_container_exists?` uses docker-api**, not a shell-out to
+  `docker ps`. The gem is loaded transitively via osl-docker. The helper
+  swallows `Docker::Error::NotFoundError`, generic `StandardError` (daemon
+  down), and `LoadError` (gem missing) — all return false so the only_if
+  fires the rebuild and lets it fail loudly if docker really isn't usable.
 
 ## Scheduling: UTC conversion at converge time
 
@@ -96,13 +110,23 @@ so a cron-triggered rebuild can't collide with an ops-triggered one. `set
 -euo pipefail` ensures a failed bootstrap aborts before we touch the live
 container.
 
-The resource exposes the rebuild two ways:
+The launcher's `set -x` around `docker run` echoes every `-e VAR=value`
+flag, which would dump `DISCOURSE_DB_PASSWORD` and similar to the chef
+log under `live_stream true`. The wrapper pipes all launcher output
+through a sed redactor that masks `-e NAME=value` where NAME ends in
+`_PASSWORD`, `_KEY`, `_SECRET`, or `_TOKEN`. New secret-shaped env vars
+added via `extra_env` get redacted automatically if they follow that
+naming convention; anything outside it would land in the log verbatim.
 
+The resource exposes the rebuild three ways:
+
+- `action :create` (default) runs the rebuild inline when needed (see
+  Resource design notes above).
 - `action :rebuild` (manual trigger). Useful from a recipe via
-  `osl_discourse 'foo' do; action :rebuild; end` or as a notify target from
-  unrelated resources.
-- Implicit delayed `:rebuild` notification fired by the `realip` and
-  `containers/<name>.yml` templates when their content changes.
+  `osl_discourse 'foo' do; action :rebuild; end` or as a notify target.
+  Streams output live (`live_stream true`).
+- The weekly `cron_d` writes `/etc/cron.d/discourse-rebuild-<container>`
+  invoking `/usr/local/sbin/discourse-rebuild` directly.
 
 ## Versioning and CHANGELOG
 

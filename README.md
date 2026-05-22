@@ -77,9 +77,15 @@ end
 
 #### Actions
 
-- `:create` (default) — sync `discourse_docker`, render the container yml,
-  install the rebuild script and cron; notifies `:rebuild` if the yml changed.
+- `:create` (default) — sync `discourse_docker`, render the realip and
+  container yml templates, install the rebuild script and weekly cron, then
+  run `/usr/local/sbin/discourse-rebuild <container>` inline if either
+  template just changed or the container doesn't exist yet (first install).
+  The rebuild runs during the action — not via a delayed notification — so
+  the container is up before any subsequent recipe in the run list.
 - `:rebuild` — run `/usr/local/sbin/discourse-rebuild <container>` now.
+  Useful for ops-initiated rebuilds; output is streamed live to the chef
+  log so progress is visible.
 
 ## Rebuild model
 
