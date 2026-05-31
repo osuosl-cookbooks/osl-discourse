@@ -85,6 +85,21 @@ hooks:
           - apt-get update && apt-get install -y postgresql-<%= @pg_client_version %>
           - echo "* * <%= @pg_client_version %> main *" >> /etc/postgresql-common/user_clusters
           - apt-get clean
+<% if @listen_port.to_s != '80' -%>
+  # Discourse hard-codes the nginx listen port. discourse_docker (main) seds the
+  # listen lines out of discourse.conf and writes them to this outlet file (both
+  # IPv4 and IPv6 on dual-stack hosts), so rewrite them here. Rendered only when
+  # the port differs from 80 to keep default instances byte-identical.
+  after_web_config:
+    - replace:
+        filename: "/etc/nginx/conf.d/outlets/server/10-http.conf"
+        from: "listen 80;"
+        to: "listen <%= @listen_port %>;"
+    - replace:
+        filename: "/etc/nginx/conf.d/outlets/server/10-http.conf"
+        from: "listen [::]:80;"
+        to: "listen [::]:<%= @listen_port %>;"
+<% end -%>
 
 run:
   - exec: echo "Beginning of custom commands"

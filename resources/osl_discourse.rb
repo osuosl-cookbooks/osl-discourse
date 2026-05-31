@@ -62,6 +62,10 @@ property :extra_templates, Array, default: []
 # Launcher invocation
 property :docker_args,       String,        default: '--network host'
 property :skip_mac_address,  [true, false], default: true
+# nginx listen port inside the host-networked container. Defaults to 80; set
+# higher when another service on the host owns 80. The container runs with
+# --network host, so the bundled nginx binds this port directly on the host.
+property :listen_port,       [String, Integer], default: 80
 
 # Weekly bootstrap-then-swap rebuild
 property :rebuild_day,       String, default: 'Mon'
@@ -127,6 +131,7 @@ action :create do
     variables(
       hostname: new_resource.hostname,
       container_name: new_resource.container_name,
+      listen_port: new_resource.listen_port,
       shared_path: discourse_shared_path(new_resource.container_name, new_resource.shared_path_name),
       discourse_version: new_resource.discourse_version,
       unicorn_workers: new_resource.unicorn_workers,

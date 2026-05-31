@@ -3,3 +3,8 @@ name: default
 depends:
  - name: inspec-docker-resources
    gem: inspec-docker-resources
+inputs:
+ - name: listen_port
+   type: numeric
+   value: 80
+   description: nginx listen port the container serves on; overridden by the listen-port suite.

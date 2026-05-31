@@ -66,6 +66,17 @@ describe 'discourse_test::default' do
       .with_content(/^  DISCOURSE_FORCE_HTTPS: true$/)
   end
 
+  it 'does not render the after_web_config listen-port hook at the default port 80' do
+    # The hooks block still exists (after_code), but no port rewrite is emitted,
+    # keeping default instances byte-identical and avoiding spurious rebuilds.
+    is_expected.to render_file('/var/discourse/containers/forum.yml')
+      .with_content(/^  after_code:$/)
+    expect(chef_run).to_not render_file('/var/discourse/containers/forum.yml')
+      .with_content(/after_web_config/)
+    expect(chef_run).to_not render_file('/var/discourse/containers/forum.yml')
+      .with_content(/listen/)
+  end
+
   # Inline rebuild fires during :create when a template just rendered or the
   # container is missing — keeps the container up before subsequent recipes
   # in the run list need it.
@@ -85,6 +96,37 @@ describe 'discourse_test::default' do
       minute: 10,
       mailto: 'root@example.org'
     )
+  end
+end
+
+# A non-default listen_port adds an after_web_config replace hook that rewrites
+# the bundled nginx listen directives. discourse_docker (main) moves both the
+# IPv4 and IPv6 listen lines into /etc/nginx/conf.d/outlets/server/10-http.conf,
+# so the hook covers both with separate replace entries.
+describe 'discourse_test::listen_port' do
+  platform 'almalinux'
+  cached(:subject) { chef_run }
+  step_into :osl_discourse
+
+  before do
+    stub_command('iptables -C INPUT -j REJECT --reject-with icmp-host-prohibited 2>/dev/null').and_return(true)
+    allow(Date).to receive(:today).and_return(Date.new(2026, 7, 6))
+    allow_any_instance_of(OslDiscourse::Cookbook::Helpers)
+      .to receive(:discourse_container_exists?).with('forum').and_return(false)
+  end
+
+  it 'renders the after_web_config hook rewriting the IPv4 listen line to the chosen port' do
+    is_expected.to render_file('/var/discourse/containers/forum.yml')
+      .with_content(/^  after_web_config:$/)
+      .with_content(%r{filename: "/etc/nginx/conf.d/outlets/server/10-http\.conf"})
+      .with_content(/from: "listen 80;"/)
+      .with_content(/to: "listen 8080;"/)
+  end
+
+  it 'rewrites the IPv6 listen line to the chosen port' do
+    is_expected.to render_file('/var/discourse/containers/forum.yml')
+      .with_content(/from: "listen \[::\]:80;"/)
+      .with_content(/to: "listen \[::\]:8080;"/)
   end
 end
 
