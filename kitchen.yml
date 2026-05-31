@@ -23,3 +23,12 @@ suites:
   - name: default
     run_list:
       - recipe[discourse_test]
+  - name: listen-port
+    run_list:
+      - recipe[discourse_test::listen_port]
+    # Reuse the default suite's inspec profile; only the port under test differs.
+    verifier:
+      inspec_tests:
+        - test/integration/default
+      inputs:
+        listen_port: 8080

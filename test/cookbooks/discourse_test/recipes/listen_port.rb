@@ -1,3 +1,7 @@
+# Full converge with a non-default nginx listen_port (8080). Mirrors the
+# default recipe but proves the after_web_config rewrite hook makes the
+# host-networked container actually bind 8080 instead of 80. Also exercised by
+# chefspec, which asserts the hook renders in containers.yml.
 osl_postgresql_test 'discourse' do
   username 'discourse'
   password 'discourse'
@@ -9,6 +13,7 @@ end
 
 osl_discourse 'discourse.example.org' do
   container_name 'forum'
+  listen_port 8080
   db_host node['ipaddress']
   db_user 'discourse'
   db_password 'discourse'

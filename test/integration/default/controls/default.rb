@@ -1,3 +1,9 @@
+# Shared by the `default` (port 80) and `listen-port` (8080) kitchen suites.
+# The listen_port input drives both the expectations on the rendered
+# containers.yml and the host port the container is verified to serve on.
+listen_port = input('listen_port', value: 80)
+base_url = listen_port.to_i == 80 ? 'http://localhost' : "http://localhost:#{listen_port}"
+
 control 'default' do
   describe directory '/var/discourse' do
     it { should exist }
@@ -18,6 +24,13 @@ control 'default' do
     its('content') { should match(%r{git clone https://github\.com/discourse/docker_manager\.git}) }
     its('content') { should match(/apt-get install -y postgresql-16/) }
     its('content') { should match(/^  DISCOURSE_FORCE_HTTPS: true$/) }
+    if listen_port.to_i == 80
+      its('content') { should_not match(/after_web_config/) }
+    else
+      its('content') { should match(/^  after_web_config:$/) }
+      its('content') { should match(/to: "listen #{listen_port};"/) }
+      its('content') { should match(/to: "listen \[::\]:#{listen_port};"/) }
+    end
   end
 
   describe file '/var/discourse/templates/web.realip.template.yml' do
@@ -68,7 +81,7 @@ control 'default' do
     its('image') { should match(%r{^local_discourse/forum}) }
   end
 
-  describe port 80 do
+  describe port listen_port.to_i do
     it { should be_listening }
   end
 
@@ -76,7 +89,7 @@ control 'default' do
   # is warm enough to serve traffic; the rest of the HTTP checks below depend
   # on this curl succeeding first. --retry-connrefused covers the "container is
   # up, Unicorn not bound yet" window; --retry covers transient 5xx during boot.
-  describe command 'curl --retry 60 --retry-delay 2 --retry-connrefused --max-time 5 -sS -o /dev/null -w "%{http_code}" -H "Host: discourse.example.org" http://localhost/srv/status' do
+  describe command "curl --retry 60 --retry-delay 2 --retry-connrefused --max-time 5 -sS -o /dev/null -w \"%{http_code}\" -H \"Host: discourse.example.org\" #{base_url}/srv/status" do
     its('exit_status') { should eq 0 }
     its('stdout') { should cmp '200' }
   end
@@ -84,7 +97,7 @@ control 'default' do
   # /srv/status is Discourse's intentional lightweight health endpoint;
   # returns plain "ok" with 200 once the site is responsive.
   describe http(
-    'http://localhost/srv/status',
+    "#{base_url}/srv/status",
     headers: { 'Host' => 'discourse.example.org' }
   ) do
     its('status') { should cmp 200 }
@@ -94,7 +107,7 @@ control 'default' do
   # Bare GET / should serve the Discourse app (200 once bootstrapped, 302 to
   # /wizard on a brand-new install before the admin completes setup).
   describe http(
-    'http://localhost/',
+    "#{base_url}/",
     headers: { 'Host' => 'discourse.example.org' }
   ) do
     its('status') { should be_in [200, 302] }
