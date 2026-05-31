@@ -100,6 +100,12 @@ end
 A flock on `/var/discourse/cids/<config>.rebuild.lock` prevents concurrent
 rebuilds (e.g. cron firing while an ops rebuild is in progress).
 
+## Restoring / migrating from a backup
+
+See [docs/restoring-a-backup.md](docs/restoring-a-backup.md) for how to bring
+up an instance from a web-GUI `.tar.gz` backup, including the external-database
+considerations specific to this deployment.
+
 ## Contributing
 
 1. Fork the repository on GitHub
