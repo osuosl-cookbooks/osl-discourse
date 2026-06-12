@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of the osl-discourse cookbook.
 
+1.2.0 (2026-06-12)
+------------------
+- Add scheduled native Discourse backups to osl_discourse
+
 1.1.0 (2026-05-31)
 ------------------
 - Add configurable nginx listen_port to osl_discourse

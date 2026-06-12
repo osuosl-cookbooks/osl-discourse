@@ -6,7 +6,7 @@ description       'Installs/Configures osl-discourse'
 issues_url        'https://github.com/osuosl-cookbooks/osl-discourse/issues'
 source_url        'https://github.com/osuosl-cookbooks/osl-discourse'
 chef_version      '>= 18.0'
-version           '1.1.0'
+version           '1.2.0'
 
 depends           'osl-docker'
 depends           'osl-git'
