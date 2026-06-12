@@ -70,6 +70,37 @@ RSpec.describe OslDiscourse::Cookbook::Helpers do
     end
   end
 
+  describe '#discourse_backup_schedule_utc' do
+    # 2026-07-06 is a Monday in PDT (UTC-7); 2026-01-05 a Monday in PST (UTC-8).
+    let(:pdt) { Date.new(2026, 7, 6) }
+    let(:pst) { Date.new(2026, 1, 5) }
+
+    context 'daily schedule' do
+      it "keeps weekday '*' and shifts 02:30 PDT to 09:30 UTC" do
+        expect(subject.discourse_backup_schedule_utc('*', 2, 30, 'America/Los_Angeles', today: pdt))
+          .to eq(weekday: '*', hour: 9, minute: 30)
+      end
+
+      it "keeps weekday '*' and shifts 02:30 PST to 10:30 UTC" do
+        expect(subject.discourse_backup_schedule_utc('*', 2, 30, 'America/Los_Angeles', today: pst))
+          .to eq(weekday: '*', hour: 10, minute: 30)
+      end
+
+      it "treats 'daily' the same as '*'" do
+        expect(subject.discourse_backup_schedule_utc('daily', 2, 30, 'America/Los_Angeles', today: pdt))
+          .to eq(weekday: '*', hour: 9, minute: 30)
+      end
+    end
+
+    context 'weekly schedule' do
+      it 'delegates to discourse_cron_utc, converting both weekday and time' do
+        # Sun 22:00 PDT (UTC-7) → Mon 05:00 UTC
+        expect(subject.discourse_backup_schedule_utc('Sun', 22, 0, 'America/Los_Angeles', today: pdt))
+          .to eq(weekday: 'Mon', hour: 5, minute: 0)
+      end
+    end
+  end
+
   describe '#discourse_container_exists?' do
     before { require 'docker' }
 

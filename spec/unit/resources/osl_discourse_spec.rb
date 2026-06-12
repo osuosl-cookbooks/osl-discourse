@@ -39,9 +39,15 @@ describe 'discourse_test::default' do
     is_expected.to create_cookbook_file('/usr/local/sbin/discourse-rebuild').with(
       source: 'discourse-rebuild',
       cookbook: 'osl-discourse',
-      mode: '0750',
-      owner: 'root',
-      group: 'root'
+      mode: '0750'
+    )
+  end
+
+  it do
+    is_expected.to create_cookbook_file('/usr/local/sbin/discourse-backup').with(
+      source: 'discourse-backup',
+      cookbook: 'osl-discourse',
+      mode: '0750'
     )
   end
 
@@ -64,6 +70,11 @@ describe 'discourse_test::default' do
   it 'renders DISCOURSE_FORCE_HTTPS: true by default (sites sit behind https-terminating HAProxy)' do
     is_expected.to render_file('/var/discourse/containers/forum.yml')
       .with_content(/^  DISCOURSE_FORCE_HTTPS: true$/)
+  end
+
+  it 'caps on-disk backup retention via DISCOURSE_MAXIMUM_BACKUPS' do
+    is_expected.to render_file('/var/discourse/containers/forum.yml')
+      .with_content(/^  DISCOURSE_MAXIMUM_BACKUPS: 3$/)
   end
 
   it 'does not render the after_web_config listen-port hook at the default port 80' do
@@ -97,6 +108,35 @@ describe 'discourse_test::default' do
       mailto: 'root@example.org'
     )
   end
+
+  # Daily at 02:00 UTC (ahead of the 05:00-13:00 UTC rdiff pull window); weekday
+  # stays '*'. mailto falls back to rebuild_mailto when backup_mailto is unset.
+  it do
+    is_expected.to create_cron_d('discourse-backup-forum').with(
+      command: '/usr/local/sbin/discourse-backup forum',
+      weekday: '*',
+      hour: 2,
+      minute: 0,
+      mailto: 'root@example.org'
+    )
+  end
+end
+
+# backup_enabled false removes the backup cron rather than creating it.
+describe 'discourse_test::backup_disabled' do
+  platform 'almalinux'
+  cached(:subject) { chef_run }
+  step_into :osl_discourse
+
+  before do
+    stub_command('iptables -C INPUT -j REJECT --reject-with icmp-host-prohibited 2>/dev/null').and_return(true)
+    allow(Date).to receive(:today).and_return(Date.new(2026, 7, 6))
+    allow_any_instance_of(OslDiscourse::Cookbook::Helpers)
+      .to receive(:discourse_container_exists?).with('forum').and_return(false)
+  end
+
+  it { is_expected.to delete_cron_d('discourse-backup-forum') }
+  it { is_expected.to create_cron_d('discourse-rebuild-forum') }
 end
 
 # A non-default listen_port adds an after_web_config replace hook that rewrites

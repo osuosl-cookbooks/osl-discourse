@@ -24,6 +24,7 @@ control 'default' do
     its('content') { should match(%r{git clone https://github\.com/discourse/docker_manager\.git}) }
     its('content') { should match(/apt-get install -y postgresql-16/) }
     its('content') { should match(/^  DISCOURSE_FORCE_HTTPS: true$/) }
+    its('content') { should match(/^  DISCOURSE_MAXIMUM_BACKUPS: 3$/) }
     if listen_port.to_i == 80
       its('content') { should_not match(/after_web_config/) }
     else
@@ -53,6 +54,13 @@ control 'default' do
     its('content') { should match(/_PASSWORD\|_KEY\|_SECRET\|_TOKEN/) }
   end
 
+  describe file '/usr/local/sbin/discourse-backup' do
+    it { should exist }
+    its('mode') { should cmp '0750' }
+    its('content') { should match(/flock -w 1200 9/) }
+    its('content') { should match(/^exec docker exec "\$config" discourse backup$/) }
+  end
+
   # Mon 11:10 PT is written in UTC; either 18:10 (PDT) or 19:10 (PST) depending
   # on when the integration test runs.
   describe file '/etc/cron.d/discourse-rebuild-forum' do
@@ -60,6 +68,15 @@ control 'default' do
     its('content') { should match(/^MAILTO=root@example\.org$/) }
     its('content') do
       should match(%r{^10 (18|19) \* \* (Mon|mon) root /usr/local/sbin/discourse-rebuild forum --docker-args "--network host" --skip-mac-address$})
+    end
+  end
+
+  # Daily at 02:00 UTC (ahead of the 05:00-13:00 UTC rdiff pull window), weekday '*'.
+  describe file '/etc/cron.d/discourse-backup-forum' do
+    it { should exist }
+    its('content') { should match(/^MAILTO=root@example\.org$/) }
+    its('content') do
+      should match(%r{^0 2 \* \* \* root /usr/local/sbin/discourse-backup forum$})
     end
   end
 
@@ -111,5 +128,14 @@ control 'default' do
     headers: { 'Host' => 'discourse.example.org' }
   ) do
     its('status') { should be_in [200, 302] }
+  end
+
+  # End-to-end: run the backup cron command and confirm the tarball is a real
+  # backup. Independent of listen_port, so only run it in the default suite.
+  if listen_port.to_i == 80
+    describe command('/opt/verify-discourse-backup') do
+      its('exit_status') { should eq 0 }
+      its('stdout') { should match(/is a valid Discourse backup/) }
+    end
   end
 end

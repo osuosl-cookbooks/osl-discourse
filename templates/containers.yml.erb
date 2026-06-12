@@ -58,6 +58,7 @@ env:
   DISCOURSE_DB_USERNAME: <%= @db_user %>
   DISCOURSE_DB_PASSWORD: <%= @db_password %>
   DISCOURSE_DB_NAME: <%= @db_name %>
+  DISCOURSE_MAXIMUM_BACKUPS: <%= @backup_max %>
 <% @extra_env.each do |k, v| -%>
   <%= k %>: <%= v %>
 <% end -%>

@@ -86,6 +86,26 @@ module OslDiscourse
         args << '--skip-mac-address' if skip_mac_address
         "#{discourse_rebuild_script} #{args.join(' ')}"
       end
+
+      def discourse_backup_script
+        '/usr/local/sbin/discourse-backup'
+      end
+
+      def discourse_backup_command(container_name)
+        "#{discourse_backup_script} #{container_name}"
+      end
+
+      # UTC schedule for the backup cron. Daily ('*'/'daily') only shifts
+      # hour/minute and keeps weekday '*'; a weekday delegates to
+      # discourse_cron_utc.
+      def discourse_backup_schedule_utc(day, hour, minute, time_zone, today: Date.today)
+        if %w(* daily).include?(day.to_s.downcase)
+          utc = discourse_cron_utc('Sun', hour, minute, time_zone, today: today)
+          { minute: utc[:minute], hour: utc[:hour], weekday: '*' }
+        else
+          discourse_cron_utc(day, hour, minute, time_zone, today: today)
+        end
+      end
     end
   end
 end
