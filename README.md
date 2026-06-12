@@ -74,6 +74,11 @@ end
 | `rebuild_day` / `rebuild_hour` / `rebuild_minute` | `Mon` / `11` / `10` | weekly window |
 | `rebuild_time_zone` | `America/Los_Angeles` | handles DST automatically |
 | `rebuild_mailto` | required | cron MAILTO |
+| `backup_enabled` | `true` | install the scheduled native-backup cron; set `false` to remove it |
+| `backup_day` / `backup_hour` / `backup_minute` | `*` / `2` / `0` | `*` (or `daily`) runs every day, or set a weekday (e.g. `Sun`); default is 02:00 UTC |
+| `backup_time_zone` | `UTC` | converted like the rebuild schedule; default UTC keeps the dump ahead of the rdiff pull window |
+| `backup_mailto` | `rebuild_mailto` | cron MAILTO for backups |
+| `backup_max` | `3` | on-disk retention; rendered as `DISCOURSE_MAXIMUM_BACKUPS`, Discourse prunes to this many tarballs after each backup |
 
 #### Actions
 
@@ -99,6 +104,29 @@ end
 
 A flock on `/var/discourse/cids/<config>.rebuild.lock` prevents concurrent
 rebuilds (e.g. cron firing while an ops rebuild is in progress).
+
+## Backups
+
+A daily cron runs `/usr/local/sbin/discourse-backup <container>` (`discourse
+backup`), landing a self-contained `<db>-<date>-vNNN.tar.gz` (database +
+uploads) in `/var/discourse/shared/<shared_path>/backups/default/` — the same
+directory used for [restores](docs/restoring-a-backup.md) — where rdiff-backup
+picks it up, instead of relying on a raw copy of the container's filesystem.
+
+Defaults to **02:00 UTC**, ahead of the `osl-backup` rdiff pull window
+(05:00–13:00 UTC) so the dump is on disk before the host is pulled; anchored in
+UTC so it doesn't drift across DST. Move `backup_hour` earlier for a site large
+enough to risk overrunning that buffer.
+
+- On-disk retention is capped by `backup_max` (rendered as
+  `DISCOURSE_MAXIMUM_BACKUPS`, locked read-only in the admin UI); Discourse
+  prunes to that many tarballs after every backup, so the host can't fill up.
+  Kept low (3) because rdiff-backup holds the long-term history.
+- Leave Discourse's `automatic_backups_enabled` off so this cron is the only
+  backup mechanism.
+- The cron shares the rebuild `flock`, so a backup waits out an in-progress
+  rebuild instead of failing mid-swap.
+- Set `backup_enabled false` to remove the cron.
 
 ## Restoring / migrating from a backup
 

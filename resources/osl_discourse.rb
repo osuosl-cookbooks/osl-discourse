@@ -74,6 +74,18 @@ property :rebuild_minute,    String, default: '10'
 property :rebuild_time_zone, String, default: 'America/Los_Angeles'
 property :rebuild_mailto,    String, required: true
 
+# Scheduled `discourse backup`. Default 02:00 UTC sits ahead of the rdiff pull
+# window (05:00-13:00 UTC); UTC avoids DST drift. backup_day '*' = daily.
+property :backup_enabled,   [true, false], default: true
+property :backup_day,       String,        default: '*'
+property :backup_hour,      String,        default: '2'
+property :backup_minute,    String,        default: '0'
+property :backup_time_zone, String,        default: 'UTC'
+property :backup_mailto,    String # defaults to rebuild_mailto
+# Retention: DISCOURSE_MAXIMUM_BACKUPS; Discourse prunes to this after each
+# backup. Low since rdiff-backup keeps the long-term history.
+property :backup_max,       Integer, default: 3
+
 action :create do
   include_recipe 'osl-docker'
   include_recipe 'osl-git'
@@ -111,8 +123,12 @@ action :create do
     source 'discourse-rebuild'
     cookbook 'osl-discourse'
     mode '0750'
-    owner 'root'
-    group 'root'
+  end
+
+  cookbook_file discourse_backup_script do
+    source 'discourse-backup'
+    cookbook 'osl-discourse'
+    mode '0750'
   end
 
   realip = template discourse_realip_template(new_resource.launcher_dir) do
@@ -155,6 +171,7 @@ action :create do
       db_name: new_resource.db_name,
       db_default_text_search_config: new_resource.db_default_text_search_config,
       pg_client_version: new_resource.pg_client_version,
+      backup_max: new_resource.backup_max,
       trusted_proxies: new_resource.trusted_proxies,
       plugins: new_resource.plugins,
       extra_env: new_resource.extra_env,
@@ -197,6 +214,23 @@ action :create do
     hour    utc_schedule[:hour]
     minute  utc_schedule[:minute]
     mailto  new_resource.rebuild_mailto
+  end
+
+  # Same UTC conversion as the rebuild cron; daily keeps weekday '*'.
+  backup_schedule = discourse_backup_schedule_utc(
+    new_resource.backup_day,
+    new_resource.backup_hour,
+    new_resource.backup_minute,
+    new_resource.backup_time_zone
+  )
+
+  cron_d "discourse-backup-#{new_resource.container_name}" do
+    command discourse_backup_command(new_resource.container_name)
+    weekday backup_schedule[:weekday]
+    hour    backup_schedule[:hour]
+    minute  backup_schedule[:minute]
+    mailto  new_resource.backup_mailto || new_resource.rebuild_mailto
+    action(new_resource.backup_enabled ? :create : :delete)
   end
 end
 

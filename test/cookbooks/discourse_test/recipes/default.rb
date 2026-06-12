@@ -16,3 +16,9 @@ osl_discourse 'discourse.example.org' do
   developer_emails 'admin@example.org'
   rebuild_mailto 'root@example.org'
 end
+
+# Backup verifier the inspec suite invokes during verify (test-only).
+cookbook_file '/opt/verify-discourse-backup' do
+  source 'verify-backup.sh'
+  mode '0755'
+end

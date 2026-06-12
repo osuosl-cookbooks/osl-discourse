@@ -22,6 +22,10 @@ uploads" was checked at download time — the uploaded files. Restoring only
 loads database rows and uploads; it does **not** touch `containers.yml` or
 anything Chef renders (hostname, SMTP, plugins, etc.).
 
+> The scheduled native backups this cookbook takes (see the README's *Backups*
+> section) land in this same `backups/default/` directory and follow the same
+> filename convention, so the restore steps below apply to them unchanged.
+
 ## Before you restore
 
 1. **Target version must be >= the source version.** Restore only refuses a

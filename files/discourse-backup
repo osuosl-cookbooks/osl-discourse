@@ -1,0 +1,32 @@
+#!/bin/bash
+# Managed by Chef (osl-discourse cookbook). DO NOT EDIT.
+#
+# Runs `discourse backup` in the container; the tarball lands in
+# /var/discourse/shared/<shared>/backups/default on the host for rdiff-backup.
+
+set -euo pipefail
+
+LAUNCHER_DIR=/var/discourse
+LOCK_DIR=$LAUNCHER_DIR/cids
+
+usage() {
+  echo "usage: $(basename "$0") <container>" >&2
+  exit 64
+}
+
+[ $# -lt 1 ] && usage
+config="$1"; shift
+
+mkdir -p "$LOCK_DIR"
+
+# Share discourse-rebuild's lock so a backup never runs during the rebuild's
+# destroy/start swap; wait it out, capped so a stuck rebuild can't hang the cron.
+lockfile="$LOCK_DIR/$config.rebuild.lock"
+
+exec 9>"$lockfile"
+if ! flock -w 1200 9; then
+  echo "timed out waiting for the discourse lock for $config (lock: $lockfile)" >&2
+  exit 1
+fi
+
+exec docker exec "$config" discourse backup
