@@ -16,7 +16,7 @@ base=$(basename "$tarball")
 echo "tarball: $base"
 
 # Filename convention (restore rejects renamed files).
-if [[ ! "$base" =~ -[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}-v[0-9]+\.tar\.gz$ ]]; then
+if [[ ! "$base" =~ -[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}-v[0-9]+(-[0-9]+)*\.tar\.gz$ ]]; then
   echo "FAIL: unexpected backup filename: $base" >&2
   exit 1
 fi
